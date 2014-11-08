@@ -6,11 +6,6 @@ import (
 	"unsafe"
 )
 
-//linux: var getTermios = syscall.TCGETS
-//linux: var setTermios = syscall.TCSETS
-//var getTermios = syscall.TIOCGETA
-//var setTermios = syscall.TIOCSETA
-
 // State contains the state of a terminal.
 type State struct {
 	termios syscall.Termios
@@ -390,6 +385,7 @@ func drawline(prompt string, lb LineBuf, extra int) {
 
 type ReplHandler interface {
 	Eval(expr string) (interface{}, bool, error)
+	Reset()
 }
 
 func repl(handler ReplHandler) error {
@@ -450,6 +446,7 @@ func repl(handler ReplHandler) error {
 			case CTRL_C:
 				puts("*** Interrupt ***\n")
 				buf.Clear()
+				handler.Reset()
 				puts(prompt)
 			case CTRL_K:
 				n := buf.KillToEnd()
