@@ -40,6 +40,10 @@ produce an object, it returns the whole thing as obj (with more == false, and er
             }
     }
     
+    func (th *TestHandler) Reset() {
+            th.value = ""
+    }
+
     func main() {
             REPL(new(TestHandler))
     }
