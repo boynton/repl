@@ -386,11 +386,12 @@ func drawline(prompt string, lb LineBuf, extra int) {
 type ReplHandler interface {
 	Eval(expr string) (interface{}, bool, error)
 	Reset()
+	Prompt() string
 }
 
 func repl(handler ReplHandler) error {
 	buf := MakeLineBuf(1024)
-	prompt := "> "
+	prompt := handler.Prompt()
 	puts(prompt)
 	meta := false
 	for true {
@@ -421,7 +422,7 @@ func repl(handler ReplHandler) error {
 				meta = true
 			case CTRL_D:
 				if buf.IsEmpty() {
-					puts("bye!\n")
+					puts("\n")
 					return nil
 				} else {
 					buf.Delete()
@@ -477,6 +478,7 @@ func repl(handler ReplHandler) error {
 				buf.AddToHistory(s)
 				buf.Clear()
 				result, more, err := handler.Eval(s)
+				prompt = handler.Prompt()
 				if err != nil {
 					fmt.Println("***", err)
 					buf.Clear()
@@ -496,6 +498,7 @@ func repl(handler ReplHandler) error {
 				}
 			}
 		}
+		prompt = handler.Prompt()
 	}
 	return nil
 }

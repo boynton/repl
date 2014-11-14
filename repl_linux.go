@@ -1,6 +1,8 @@
 package repl
-import ("syscall")
+
+import (
+	"syscall"
+)
 
 var getTermios = syscall.TCGETS
 var setTermios = syscall.TCSETS
-
