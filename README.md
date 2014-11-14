@@ -44,6 +44,10 @@ produce an object, it returns the whole thing as obj (with more == false, and er
             th.value = ""
     }
 
+    func (th *TestHandler) Prompt() string {
+            return "> "
+    }
+
     func main() {
             REPL(new(TestHandler))
     }
