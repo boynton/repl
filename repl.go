@@ -178,17 +178,22 @@ func (lb *LineBuf) DeleteRange(begin int, end int) int {
 
 func (lb *LineBuf) WordBackspace() int {
 	var i = lb.cursor
-	for i = lb.cursor - 1; i > 0; i-- {
+	if lb.cursor > 0 {
+		i--
+	}
+	for ; i > 0; i-- {
 		if lb.buf[i] != SPACE {
 			break
 		}
 	}
-	for ; i > 0; i-- {
-		if lb.buf[i] == SPACE {
-			return lb.DeleteRange(i+1, lb.cursor)
+	if lb.buf[i] != SPACE {
+		for ; i > 0; i-- {
+			if lb.buf[i] == SPACE {
+				return lb.DeleteRange(i+1, lb.cursor)
+			}
 		}
 	}
-	return 0
+	return lb.DeleteRange(0, lb.cursor)
 }
 
 func (lb *LineBuf) WordDelete() int {
@@ -287,7 +292,6 @@ func (lb *LineBuf) AddToHistory(line string) {
 
 func (lb *LineBuf) PrevInHistory() int {
 	n := lb.length
-	//fmt.Println("n = ", n)
 	if lb.history != nil {
 		if lb.historyIndex < 0 {
 			lb.historyIndex = len(lb.history) - 1
