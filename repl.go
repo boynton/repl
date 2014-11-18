@@ -44,7 +44,7 @@ func Restore(fd int, state *State) error {
 	return err
 }
 
-func getchar() (byte, error) {
+func GetChar() (byte, error) {
 	var ch [1]byte
 	n, err := syscall.Read(syscall.Stdout, ch[:])
 	if err != nil || n == 0 {
@@ -54,14 +54,14 @@ func getchar() (byte, error) {
 	}
 }
 
-func putchar(b byte) error {
+func PutChar(b byte) error {
 	var ch [1]byte
 	ch[0] = b
 	_, err := syscall.Write(syscall.Stdout, ch[:])
 	return err
 }
 
-func puts(s string) error {
+func PutString(s string) error {
 	_, err := syscall.Write(syscall.Stdout, []byte(s))
 	return err
 }
@@ -357,28 +357,28 @@ const DELETE = 127
 func dump(prompt string, lb LineBuf, extra int) {
 	fmt.Println("\ncursor =", lb.cursor, "length =", lb.length)
 	for i := 0; i < lb.length; i++ {
-		putchar(lb.buf[i])
+		PutChar(lb.buf[i])
 	}
-	putchar(NEWLINE)
+	PutChar(NEWLINE)
 	for i := 0; i < lb.length; i++ {
 		if i == lb.cursor {
-			putchar('^')
+			PutChar('^')
 		} else {
-			putchar('.')
+			PutChar('.')
 		}
 	}
 	if lb.cursor == lb.length {
-		putchar('^')
+		PutChar('^')
 	}
-	putchar(NEWLINE)
+	PutChar(NEWLINE)
 }
 
 func drawline(prompt string, lb LineBuf, extra int) {
-	putchar(13)
-	puts(prompt)
-	puts(lb.String())
+	PutChar(13)
+	PutString(prompt)
+	PutString(lb.String())
 	for i := 0; i < extra; i++ {
-		putchar(SPACE)
+		PutChar(SPACE)
 	}
 	cursor := lb.length + extra
 	for cursor > lb.cursor {
@@ -396,10 +396,10 @@ type ReplHandler interface {
 func repl(handler ReplHandler) error {
 	buf := MakeLineBuf(1024)
 	prompt := handler.Prompt()
-	puts(prompt)
+	PutString(prompt)
 	meta := false
 	for true {
-		ch, err := getchar()
+		ch, err := GetChar()
 		if err != nil {
 			return err
 		} else if meta {
@@ -418,7 +418,7 @@ func repl(handler ReplHandler) error {
 				buf.WordForward()
 				drawline(prompt, buf, 0)
 			default:
-				putchar(BEEP)
+				PutChar(BEEP)
 			}
 		} else {
 			switch ch {
@@ -426,7 +426,7 @@ func repl(handler ReplHandler) error {
 				meta = true
 			case CTRL_D:
 				if buf.IsEmpty() {
-					puts("\n")
+					PutString("\n")
 					return nil
 				} else {
 					buf.Delete()
@@ -449,10 +449,10 @@ func repl(handler ReplHandler) error {
 					drawline(prompt, buf, 0)
 				}
 			case CTRL_C:
-				puts("*** Interrupt ***\n")
+				PutString("*** Interrupt ***\n")
 				buf.Clear()
 				handler.Reset()
-				puts(prompt)
+				PutString(prompt)
 			case CTRL_K:
 				n := buf.KillToEnd()
 				drawline(prompt, buf, n)
@@ -461,7 +461,7 @@ func repl(handler ReplHandler) error {
 				drawline(prompt, buf, n)
 			case CTRL_L:
 				//dump(prompt, buf, 0);
-				puts("\n")
+				PutString("\n")
 				drawline(prompt, buf, 0)
 			case CTRL_N:
 				n := buf.NextInHistory()
@@ -476,7 +476,7 @@ func repl(handler ReplHandler) error {
 				}
 			case RETURN:
 				if !buf.IsEmpty() {
-					putchar('\n')
+					PutChar('\n')
 				}
 				s := buf.String()
 				buf.AddToHistory(s)
@@ -486,19 +486,19 @@ func repl(handler ReplHandler) error {
 				if err != nil {
 					fmt.Println("***", err)
 					buf.Clear()
-					puts(prompt)
+					PutString(prompt)
 				} else if more {
-					//puts("\n (need more)\n")
+					//PutString("\n (need more)\n")
 				} else {
 					fmt.Println(result)
-					puts(prompt)
+					PutString(prompt)
 				}
 			default:
 				if ch >= SPACE && ch < 127 {
 					buf.Insert(ch)
 					drawline(prompt, buf, 0)
 				} else {
-					putchar(BEEP)
+					PutChar(BEEP)
 				}
 			}
 		}
