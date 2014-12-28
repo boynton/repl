@@ -17,10 +17,9 @@ type ReplHandler interface {
 }
 
 func REPL(handler ReplHandler) error {
-	state, err := makeCbreak(syscall.Stdout)
-	//	state, err := makeRaw(syscall.Stdout)
+	state, err := makeCbreak(syscall.Stdin)
 	if err == nil {
-		defer restore(syscall.Stdout, state)
+		defer restore(syscall.Stdin, state)
 		repl(handler)
 		return nil
 	} else {
@@ -325,7 +324,9 @@ func (lb *lineBuf) End() {
 }
 
 func (lb *lineBuf) AddToHistory(line string) {
-	lb.history = append(lb.history, line)
+	if len(line) > 0 {
+		lb.history = append(lb.history, line)
+	}
 	lb.historyIndex = -1
 }
 
@@ -534,7 +535,7 @@ func repl(handler ReplHandler) error {
 					drawline(prompt, buf, 0)
 				}
 			case CTRL_C:
-				putString("*** Interrupt ***\n")
+				putString("*** Interrupt\n")
 				buf.Clear()
 				handler.Reset()
 				prompt = handler.Prompt()
@@ -601,7 +602,6 @@ func repl(handler ReplHandler) error {
 					prompt = handler.Prompt()
 					putString(prompt)
 				} else if more {
-					//putString("\n (need more)\n")
 					prompt = ""
 				} else {
 					fmt.Println(result)
