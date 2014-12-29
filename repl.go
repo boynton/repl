@@ -8,7 +8,7 @@ import (
 )
 
 type ReplHandler interface {
-	Eval(expr string) (interface{}, bool, error)
+	Eval(expr string) (string, bool, error)
 	Complete(expr string) (string, []string)
 	Reset()
 	Prompt() string
