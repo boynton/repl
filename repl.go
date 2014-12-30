@@ -595,16 +595,21 @@ func repl(handler ReplHandler) error {
 				s := buf.String()
 				buf.AddToHistory(s)
 				buf.Clear()
+				red := "\033[0;31m"
+				green := "\033[0;32m"
+				blue := "\033[0;34m"
+				black := "\033[0;0m"
+				fmt.Printf(blue) //all eval output in blue
 				result, more, err := handler.Eval(s)
 				if err != nil {
-					fmt.Println("***", err)
+					fmt.Println(red, "***", err, black) //error result in red
 					buf.Clear()
 					prompt = handler.Prompt()
 					putString(prompt)
 				} else if more {
 					prompt = ""
 				} else {
-					fmt.Println(result)
+					fmt.Println(green, result, black) //non-error result in green
 					prompt = handler.Prompt()
 					putString(prompt)
 				}
