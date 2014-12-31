@@ -609,7 +609,7 @@ func repl(handler ReplHandler) error {
 				} else if more {
 					prompt = ""
 				} else {
-					fmt.Println(green, result, black) //non-error result in green
+					fmt.Println(green + result + black) //non-error result in green
 					prompt = handler.Prompt()
 					putString(prompt)
 				}
