@@ -214,24 +214,43 @@ func (lb *lineBuf) DeleteRange(begin int, end int) int {
 	return n
 }
 
-func (lb *lineBuf) WordBackspace() int {
-	var i = lb.cursor
-	if lb.cursor > 0 {
+func isWordDelimiter(ch byte) bool {
+	if ch == SPACE || ch == OPEN_PAREN || ch == OPEN_BRACKET || ch == OPEN_BRACE || ch == SINGLE_QUOTE {
+		return true
+	}
+	return false
+}
+
+func (lb *lineBuf) previousWordBoundary() int {
+	i := lb.cursor
+	if i == 0 {
+		return 0
+	} else {
 		i--
-	}
-	for ; i > 0; i-- {
-		if lb.buf[i] != SPACE {
-			break
+		if i == 0 {
+			return 0
 		}
-	}
-	if lb.buf[i] != SPACE {
-		for ; i > 0; i-- {
-			if lb.buf[i] == SPACE {
-				return lb.DeleteRange(i+1, lb.cursor)
+		for isWordDelimiter(lb.buf[i]) {
+			i--
+			if i < 0 {
+				return 0
 			}
 		}
+		if i > 0 {
+			for !isWordDelimiter(lb.buf[i]) {
+				i--
+				if i < 0 {
+					return 0
+				}
+			}
+		}
+		return i+1
 	}
-	return lb.DeleteRange(0, lb.cursor)
+}
+
+func (lb *lineBuf) WordBackspace() int {
+	i := lb.previousWordBoundary()
+	return lb.DeleteRange(i, lb.cursor)
 }
 
 func (lb *lineBuf) WordDelete() int {
@@ -266,24 +285,7 @@ func (lb *lineBuf) WordForward() {
 }
 
 func (lb *lineBuf) WordBackward() {
-	i := lb.cursor
-	if lb.cursor > 0 {
-		i--
-	}
-	for ; i > 0; i-- {
-		if lb.buf[i] != SPACE {
-			break
-		}
-	}
-	if lb.buf[i] != SPACE {
-		for ; i > 0; i-- {
-			if lb.buf[i] == SPACE {
-				lb.cursor = i + 1
-				return
-			}
-		}
-	}
-	lb.cursor = 0
+	lb.cursor = lb.previousWordBoundary()
 }
 
 func (lb *lineBuf) Yank() int {
@@ -394,6 +396,7 @@ const CTRL_P = 16
 const CTRL_Y = 25
 const ESCAPE = 27
 const SPACE = 32
+const SINGLE_QUOTE = 39
 const DELETE = 127
 const OPEN_PAREN = 40
 const CLOSE_PAREN = 41
