@@ -16,15 +16,56 @@ type ReplHandler interface {
 	Stop(history []string)
 }
 
+var input chan byte
+
 func REPL(handler ReplHandler) error {
+	input = make(chan byte, 1)
+	go func() {
+		var ch [1]byte
+		for {
+			n, err := syscall.Read(syscall.Stdin, ch[:])
+			if err != nil || n == 0 {
+				panic("Problem reading stdin")
+			} else {
+				input <- ch[0]
+				if ch[0] == 0 {
+					return
+				}
+			}
+		}
+	}()
 	state, err := makeCbreak(syscall.Stdin)
 	if err == nil {
 		defer restore(syscall.Stdin, state)
-		repl(handler)
-		return nil
+		err = repl(handler)
+		return err
 	} else {
 		return err
 	}
+}
+
+func getChar() byte {
+	return <-input
+}
+
+func pause(millis time.Duration) {
+	select {
+	case ch := <-input:
+		input <- ch
+	case <-time.After(millis):
+	}
+}
+
+func putChar(b byte) error {
+	var ch [1]byte
+	ch[0] = b
+	_, err := syscall.Write(syscall.Stdout, ch[:])
+	return err
+}
+
+func putChars(b []byte) error {
+	_, err := syscall.Write(syscall.Stdout, b)
+	return err
 }
 
 // State contains the state of a terminal.
@@ -81,38 +122,18 @@ func restore(fd int, state *termState) error {
 	return err
 }
 
-func getChar() (byte, error) {
-	var ch [1]byte
-	n, err := syscall.Read(syscall.Stdout, ch[:])
-	if err != nil || n == 0 {
-		return 0, err
-	} else {
-		return ch[0], nil
-	}
-}
-
-func putChar(b byte) error {
-	var ch [1]byte
-	ch[0] = b
-	_, err := syscall.Write(syscall.Stdout, ch[:])
-	return err
-}
-
 func putString(s string) error {
-	_, err := syscall.Write(syscall.Stdout, []byte(s))
-	return err
+	return putChars([]byte(s))
 }
 
 func cursorBackward() error {
-	b := []byte{27, '[', '1', 'D'}
-	_, err := syscall.Write(syscall.Stdout, b)
-	return err
+	chars := []byte{27, '[', '1', 'D'}
+	return putChars(chars)
 }
 
 func cursorForward() error {
-	b := []byte{27, '[', '1', 'C'}
-	_, err := syscall.Write(syscall.Stdout, b)
-	return err
+	chars := []byte{27, '[', '1', 'C'}
+	return putChars(chars)
 }
 
 type lineBuf struct {
@@ -244,7 +265,7 @@ func (lb *lineBuf) previousWordBoundary() int {
 				}
 			}
 		}
-		return i+1
+		return i + 1
 	}
 }
 
@@ -429,7 +450,7 @@ func highlightMatch(lb *lineBuf, prompt string, chOpen byte, chClose byte) {
 				tmp := lb.cursor
 				lb.cursor = i
 				drawline(prompt, lb, 0)
-				time.Sleep(150 * time.Millisecond)
+				pause(500 * time.Millisecond)
 				lb.cursor = tmp
 				drawline(prompt, lb, 0)
 				return
@@ -486,11 +507,8 @@ func repl(handler ReplHandler) error {
 	var lastChar byte
 	var options []string
 	for true {
-		ch, err := getChar()
-		if err != nil {
-			handler.Stop(buf.history)
-			return err
-		} else if meta {
+		ch := getChar()
+		if meta {
 			meta = false
 			switch ch {
 			case DELETE:
@@ -516,6 +534,7 @@ func repl(handler ReplHandler) error {
 				if buf.IsEmpty() {
 					putString("\n")
 					handler.Stop(buf.history)
+					input <- 0 //to stop the goroutine
 					return nil
 				} else {
 					buf.Delete()
