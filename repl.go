@@ -68,6 +68,16 @@ func putChars(b []byte) error {
 	return err
 }
 
+func peekChar() (byte, bool) {
+	select {
+	case ch := <-input:
+		input <- ch
+		return ch, true
+	case <-time.After(10 * time.Millisecond):
+		return 0, false
+	}
+}
+
 // State contains the state of a terminal.
 type termState struct {
 	termios syscall.Termios
@@ -579,7 +589,10 @@ func repl(handler ReplHandler) error {
 				n := buf.PrevInHistory()
 				drawline(prompt, buf, n)
 			case TAB:
-				if lastChar == TAB {
+				if _, ok := peekChar(); ok {
+					//pasting text in, don't do the tab completion
+					ch = 0
+				} else if lastChar == TAB {
 					if options != nil {
 						for _, opt := range options {
 							putChar(NEWLINE)
