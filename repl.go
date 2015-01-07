@@ -34,9 +34,9 @@ func REPL(handler ReplHandler) error {
 			}
 		}
 	}()
-	state, err := makeCbreak(syscall.Stdin)
+	state, err := MakeCbreak(syscall.Stdin)
 	if err == nil {
-		defer restore(syscall.Stdin, state)
+		defer Restore(syscall.Stdin, state)
 		err = repl(handler)
 		return err
 	} else {
@@ -44,11 +44,11 @@ func REPL(handler ReplHandler) error {
 	}
 }
 
-func getChar() byte {
+func GetChar() byte {
 	return <-input
 }
 
-func pause(millis time.Duration) {
+func Pause(millis time.Duration) {
 	select {
 	case ch := <-input:
 		input <- ch
@@ -56,19 +56,19 @@ func pause(millis time.Duration) {
 	}
 }
 
-func putChar(b byte) error {
+func PutChar(b byte) error {
 	var ch [1]byte
 	ch[0] = b
 	_, err := syscall.Write(syscall.Stdout, ch[:])
 	return err
 }
 
-func putChars(b []byte) error {
+func PutChars(b []byte) error {
 	_, err := syscall.Write(syscall.Stdout, b)
 	return err
 }
 
-func peekChar() (byte, bool) {
+func PeekChar() (byte, bool) {
 	select {
 	case ch := <-input:
 		input <- ch
@@ -83,17 +83,10 @@ type termState struct {
 	termios syscall.Termios
 }
 
-// IsTerminal returns true if the given file descriptor is a terminal.
-func isTerminal(fd int) bool {
-	var termios syscall.Termios
-	_, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(fd), uintptr(getTermios), uintptr(unsafe.Pointer(&termios)), 0, 0, 0)
-	return err == 0
-}
-
 // MakeRaw put the terminal connected to the given file descriptor into raw
 // mode and returns the previous state of the terminal so that it can be
 // restored.
-func makeRaw(fd int) (*termState, error) {
+func MakeRaw(fd int) (*termState, error) {
 	var oldState termState
 	if _, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(fd), uintptr(getTermios), uintptr(unsafe.Pointer(&oldState.termios)), 0, 0, 0); err != 0 {
 		return nil, err
@@ -109,7 +102,7 @@ func makeRaw(fd int) (*termState, error) {
 	return &oldState, nil
 }
 
-func makeCbreak(fd int) (*termState, error) {
+func MakeCbreak(fd int) (*termState, error) {
 	var oldState termState
 	if _, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(fd), uintptr(getTermios), uintptr(unsafe.Pointer(&oldState.termios)), 0, 0, 0); err != 0 {
 		return nil, err
@@ -127,23 +120,23 @@ func makeCbreak(fd int) (*termState, error) {
 
 // Restore restores the terminal connected to the given file descriptor to a
 // previous state.
-func restore(fd int, state *termState) error {
+func Restore(fd int, state *termState) error {
 	_, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(fd), uintptr(setTermios), uintptr(unsafe.Pointer(&state.termios)), 0, 0, 0)
 	return err
 }
 
-func putString(s string) error {
-	return putChars([]byte(s))
+func PutString(s string) error {
+	return PutChars([]byte(s))
 }
 
 func cursorBackward() error {
 	chars := []byte{27, '[', '1', 'D'}
-	return putChars(chars)
+	return PutChars(chars)
 }
 
 func cursorForward() error {
 	chars := []byte{27, '[', '1', 'C'}
-	return putChars(chars)
+	return PutChars(chars)
 }
 
 type lineBuf struct {
@@ -460,7 +453,7 @@ func highlightMatch(lb *lineBuf, prompt string, chOpen byte, chClose byte) {
 				tmp := lb.cursor
 				lb.cursor = i
 				drawline(prompt, lb, 0)
-				pause(500 * time.Millisecond)
+				Pause(500 * time.Millisecond)
 				lb.cursor = tmp
 				drawline(prompt, lb, 0)
 				return
@@ -469,34 +462,34 @@ func highlightMatch(lb *lineBuf, prompt string, chOpen byte, chClose byte) {
 			count++
 		}
 	}
-	putChar(BEEP)
+	PutChar(BEEP)
 }
 
 func dump(prompt string, lb lineBuf, extra int) {
 	fmt.Println("\ncursor =", lb.cursor, "length =", lb.length)
 	for i := 0; i < lb.length; i++ {
-		putChar(lb.buf[i])
+		PutChar(lb.buf[i])
 	}
-	putChar(NEWLINE)
+	PutChar(NEWLINE)
 	for i := 0; i < lb.length; i++ {
 		if i == lb.cursor {
-			putChar('^')
+			PutChar('^')
 		} else {
-			putChar('.')
+			PutChar('.')
 		}
 	}
 	if lb.cursor == lb.length {
-		putChar('^')
+		PutChar('^')
 	}
-	putChar(NEWLINE)
+	PutChar(NEWLINE)
 }
 
 func drawline(prompt string, lb *lineBuf, extra int) {
-	putChar(13)
-	putString(prompt)
-	putString(lb.String())
+	PutChar(13)
+	PutString(prompt)
+	PutString(lb.String())
 	for i := 0; i < extra; i++ {
-		putChar(SPACE)
+		PutChar(SPACE)
 	}
 	cursor := lb.length + extra
 	for cursor > lb.cursor {
@@ -512,12 +505,12 @@ func repl(handler ReplHandler) error {
 		buf.history = hist
 	}
 	prompt := handler.Prompt()
-	putString(prompt)
+	PutString(prompt)
 	meta := false
 	var lastChar byte
 	var options []string
 	for true {
-		ch := getChar()
+		ch := GetChar()
 		if meta {
 			meta = false
 			switch ch {
@@ -534,7 +527,7 @@ func repl(handler ReplHandler) error {
 				buf.WordForward()
 				drawline(prompt, buf, 0)
 			default:
-				putChar(BEEP)
+				PutChar(BEEP)
 			}
 		} else {
 			switch ch {
@@ -542,7 +535,7 @@ func repl(handler ReplHandler) error {
 				meta = true
 			case CTRL_D:
 				if buf.IsEmpty() {
-					putString("\n")
+					PutString("\n")
 					handler.Stop(buf.history)
 					input <- 0 //to stop the goroutine
 					return nil
@@ -567,11 +560,11 @@ func repl(handler ReplHandler) error {
 					drawline(prompt, buf, 0)
 				}
 			case CTRL_C:
-				putString("*** Interrupt\n")
+				PutString("*** Interrupt\n")
 				buf.Clear()
 				handler.Reset()
 				prompt = handler.Prompt()
-				putString(prompt)
+				PutString(prompt)
 			case CTRL_K:
 				n := buf.KillToEnd()
 				drawline(prompt, buf, n)
@@ -580,7 +573,7 @@ func repl(handler ReplHandler) error {
 				drawline(prompt, buf, n)
 			case CTRL_L:
 				//dump(prompt, buf, 0);
-				putString("\n")
+				PutString("\n")
 				drawline(prompt, buf, 0)
 			case CTRL_N:
 				n := buf.NextInHistory()
@@ -589,19 +582,19 @@ func repl(handler ReplHandler) error {
 				n := buf.PrevInHistory()
 				drawline(prompt, buf, n)
 			case TAB:
-				if _, ok := peekChar(); ok {
+				if _, ok := PeekChar(); ok {
 					//pasting text in, don't do the tab completion
 					ch = 0
 				} else if lastChar == TAB {
 					if options != nil {
 						for _, opt := range options {
-							putChar(NEWLINE)
-							putString(opt)
+							PutChar(NEWLINE)
+							PutString(opt)
 						}
-						putChar(NEWLINE)
+						PutChar(NEWLINE)
 						drawline(prompt, buf, 0)
 					}
-					putChar(BEEP)
+					PutChar(BEEP)
 				} else {
 					addendum, opt := handler.Complete(string(buf.buf[0:buf.cursor]))
 					if len(addendum) > 0 {
@@ -612,7 +605,7 @@ func repl(handler ReplHandler) error {
 						options = nil
 					} else {
 						options = opt
-						putChar(BEEP)
+						PutChar(BEEP)
 					}
 					drawline(prompt, buf, 0)
 				}
@@ -621,11 +614,11 @@ func repl(handler ReplHandler) error {
 					buf.Delete()
 					drawline(prompt, buf, 1)
 				} else {
-					putChar(BEEP)
+					PutChar(BEEP)
 				}
 			case RETURN:
 				if !buf.IsEmpty() {
-					putChar('\n')
+					PutChar('\n')
 				}
 				s := buf.String()
 				buf.AddToHistory(s)
@@ -640,13 +633,13 @@ func repl(handler ReplHandler) error {
 					fmt.Println(red, "***", err, black) //error result in red
 					buf.Clear()
 					prompt = handler.Prompt()
-					putString(prompt)
+					PutString(prompt)
 				} else if more {
 					prompt = ""
 				} else {
 					fmt.Println(green + result + black) //non-error result in green
 					prompt = handler.Prompt()
-					putString(prompt)
+					PutString(prompt)
 				}
 			default:
 				if ch >= SPACE && ch < 127 {
@@ -657,7 +650,7 @@ func repl(handler ReplHandler) error {
 						highlightMatch(buf, prompt, match, ch)
 					}
 				} else {
-					putChar(BEEP)
+					PutChar(BEEP)
 				}
 			}
 		}
