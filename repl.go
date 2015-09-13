@@ -48,9 +48,11 @@ func REPL(handler ReplHandler) error {
 }
 
 func Exit(code int) {
-	Restore(syscall.Stdin, state)
-	black := "\033[0;0m"
-	fmt.Printf(black)
+	if state != nil {
+		Restore(syscall.Stdin, state)
+		black := "\033[0;0m"
+		fmt.Printf(black)
+	}
 	os.Exit(1)
 }
 
