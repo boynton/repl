@@ -2,6 +2,7 @@ package repl
 
 import (
 	"fmt"
+	"os"
 	"syscall"
 	"time"
 	"unsafe"
@@ -17,8 +18,10 @@ type ReplHandler interface {
 }
 
 var input chan byte
+var state *termState
 
 func REPL(handler ReplHandler) error {
+	var err error
 	input = make(chan byte, 1)
 	go func() {
 		var ch [1]byte
@@ -34,7 +37,7 @@ func REPL(handler ReplHandler) error {
 			}
 		}
 	}()
-	state, err := MakeCbreak(syscall.Stdin)
+	state, err = MakeCbreak(syscall.Stdin)
 	if err == nil {
 		defer Restore(syscall.Stdin, state)
 		err = repl(handler)
@@ -42,6 +45,13 @@ func REPL(handler ReplHandler) error {
 	} else {
 		return err
 	}
+}
+
+func Exit(code int) {
+	Restore(syscall.Stdin, state)
+	black := "\033[0;0m"
+	fmt.Printf(black)
+	os.Exit(1)
 }
 
 func GetChar() byte {
