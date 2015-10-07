@@ -519,11 +519,34 @@ func repl(handler ReplHandler) error {
 	prompt := handler.Prompt()
 	PutString(prompt)
 	meta := false
+	metaExt := false
 	var lastChar byte
 	var options []string
 	for true {
 		ch := GetChar()
-		if meta {
+		if metaExt {
+			metaExt = false
+			switch ch {
+			case 'D':
+				if buf.Backward() {
+					cursorBackward()
+					drawline(prompt, buf, 0)
+				}
+			case 'C':
+				if buf.Forward() {
+					cursorForward()
+					drawline(prompt, buf, 0)
+				}
+			case 'B':
+				n := buf.NextInHistory()
+				drawline(prompt, buf, n)
+			case 'A':
+				n := buf.PrevInHistory()
+				drawline(prompt, buf, n)
+			default:
+				PutChar(BEEP)
+			}
+		} else if meta {
 			meta = false
 			switch ch {
 			case DELETE:
@@ -538,6 +561,8 @@ func repl(handler ReplHandler) error {
 			case 'f':
 				buf.WordForward()
 				drawline(prompt, buf, 0)
+			case OPEN_BRACKET:
+				metaExt = true
 			default:
 				PutChar(BEEP)
 			}
