@@ -61,6 +61,7 @@ func GetChar() byte {
 }
 
 func Pause(millis time.Duration) {
+	time.Sleep(1*time.Millisecond) //ugh
 	select {
 	case ch := <-input:
 		input <- ch
