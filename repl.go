@@ -18,6 +18,8 @@ type ReplHandler interface {
 }
 
 var input chan byte
+var lastIn byte
+var lastInOk bool
 var state *termState
 
 func REPL(handler ReplHandler) error {
@@ -57,15 +59,21 @@ func Exit(code int) {
 }
 
 func GetChar() byte {
+	if lastInOk {
+		lastInOk = false
+		return lastIn
+	}
 	return <-input
 }
 
 func Pause(millis time.Duration) {
-	time.Sleep(1*time.Millisecond) //ugh
-	select {
-	case ch := <-input:
-		input <- ch
-	case <-time.After(millis):
+	if !lastInOk {
+		select {
+		case ch := <-input:
+			lastIn = ch
+			lastInOk = true
+		case <-time.After(millis):
+		}
 	}
 }
 
@@ -82,10 +90,14 @@ func PutChars(b []byte) error {
 }
 
 func PeekChar() (byte, bool) {
+	if lastInOk {
+		return lastIn, true
+	}
 	select {
 	case ch := <-input:
-		input <- ch
-		return ch, true
+		lastIn = ch
+		lastInOk = true
+		return lastIn, true
 	case <-time.After(10 * time.Millisecond):
 		return 0, false
 	}
@@ -667,6 +679,7 @@ func repl(handler ReplHandler) error {
 				black := "\033[0;0m"
 				fmt.Printf(blue) //all eval output in blue
 				result, more, err := handler.Eval(s)
+				fmt.Printf(black)
 				if err != nil {
 					fmt.Println(red, "***", err, black) //error result in red
 					buf.Clear()
